@@ -7,6 +7,7 @@ from ..base import IntentProviderBase
 from plugins_func.functions.play_music import initialize_music_handler
 from config.logger import setup_logging
 from core.utils.util import get_system_error_response
+import ast
 import re
 import json
 import hashlib
@@ -264,7 +265,12 @@ class IntentProvider(IntentProviderBase):
 
         # 尝试解析为JSON
         try:
-            intent_data = json.loads(intent)
+            try:
+                intent_data = json.loads(intent)
+            except json.JSONDecodeError:
+                # 部分模型(如豆包)偶发返回单引号的Python风格字面量，用ast兜底解析
+                intent_data = ast.literal_eval(intent.strip())
+                intent = json.dumps(intent_data, ensure_ascii=False)
             # 兼容部分模型(如豆包)把function_call的值返回为数组：取第一个调用并回写
             if isinstance(intent_data, dict) and isinstance(
                 intent_data.get("function_call"), list
