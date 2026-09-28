@@ -26,3 +26,5 @@ services:
       - ./data/patches/intent_llm.py:/opt/xiaozhi-esp32-server/core/providers/intent/intent_llm/intent_llm.py
       # 补丁：设备MCP布尔回执不再二次调LLM(秒回+避免说错话)，有内容回执包装语义后再给LLM
       - ./data/patches/mcp_executor.py:/opt/xiaozhi-esp32-server/core/providers/tools/device_mcp/mcp_executor.py
+      # 补丁：支持多指令function_calls数组(如"往前走3步再后退3步")，此前该格式静默透传
+      - ./data/patches/intentHandler.py:/opt/xiaozhi-esp32-server/core/handle/intentHandler.py
