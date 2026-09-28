@@ -154,6 +154,24 @@ class IntentProvider(IntentProviderBase):
             logger.bind(tag=TAG).error(f"Error in generating reply result: {e}")
             return get_system_error_response(self.config)
 
+    @staticmethod
+    def _parse_intent_output(text: str):
+        """多级容错解析模型输出，覆盖已 observed 的各种格式漂移：
+        标准JSON → Python字面量(单引号) → 引号/尾逗号修复版"""
+        t = text.strip()
+        # 修复版：单引号→双引号，去掉 }/] 前的尾逗号
+        fixed = re.sub(r",\s*([}\]])", r"\1", t.replace("'", '"'))
+        for cand in (t, fixed):
+            try:
+                return json.loads(cand)
+            except (json.JSONDecodeError, ValueError):
+                pass
+            try:
+                return ast.literal_eval(cand)
+            except (ValueError, SyntaxError, MemoryError):
+                pass
+        return None
+
     async def detect_intent(
         self, conn: "ConnectionHandler", dialogue_history: List[Dict], text: str
     ) -> str:
@@ -274,23 +292,19 @@ class IntentProvider(IntentProviderBase):
 
         # 尝试解析为JSON
         try:
-            try:
-                intent_data = json.loads(intent)
-            except json.JSONDecodeError:
-                # 部分模型(如豆包)偶发返回单引号的Python风格字面量，用ast兜底解析
-                intent_data = ast.literal_eval(intent.strip())
-                intent = json.dumps(intent_data, ensure_ascii=False)
+            intent_data = self._parse_intent_output(intent)
+            if not isinstance(intent_data, dict):
+                # 所有解析方式都失败，走外层统一兜底(记录原始输出并continue_chat)
+                raise json.JSONDecodeError("intent output unparsable", intent, 0)
             # 兼容部分模型(如豆包)把function_call的值返回为数组：取第一个调用并回写
-            if isinstance(intent_data, dict) and isinstance(
-                intent_data.get("function_call"), list
-            ):
+            if isinstance(intent_data.get("function_call"), list):
                 fc_list = intent_data["function_call"]
                 intent_data["function_call"] = (
                     fc_list[0]
                     if fc_list and isinstance(fc_list[0], dict)
                     else {"name": "continue_chat"}
                 )
-                intent = json.dumps(intent_data, ensure_ascii=False)
+            intent = json.dumps(intent_data, ensure_ascii=False)
             # 如果包含function_call，则格式化为适合处理的格式
             if "function_call" in intent_data:
                 function_data = intent_data["function_call"]
