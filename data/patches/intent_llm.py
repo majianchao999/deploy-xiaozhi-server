@@ -176,8 +176,8 @@ class IntentProvider(IntentProviderBase):
         cached_intent = self.cache_manager.get(self.CacheType.INTENT, cache_key)
         if cached_intent is not None:
             cache_time = time.time() - total_start_time
-            logger.bind(tag=TAG).debug(
-                f"使用缓存的意图: {cache_key} -> {cached_intent}, 耗时: {cache_time:.4f}秒"
+            logger.bind(tag=TAG).info(
+                f"使用缓存的意图(未调用模型): {cached_intent}, 耗时: {cache_time:.4f}秒"
             )
             return cached_intent
 
@@ -193,6 +193,9 @@ class IntentProvider(IntentProviderBase):
         if self.promot == "" or len(functions) != getattr(self, "_prompt_func_count", -1):
             self.promot = self.get_intent_system_prompt(functions)
             self._prompt_func_count = len(functions)
+            logger.bind(tag=TAG).info(
+                f"意图系统提示词已构建/更新(共{len(functions)}个工具):\n{self.promot}"
+            )
 
         music_config = initialize_music_handler(conn)
         music_file_names = music_config["music_file_names"]
@@ -222,6 +225,9 @@ class IntentProvider(IntentProviderBase):
         msgStr += f"User: {text}\n"
         user_prompt = f"current dialogue:\n{msgStr}"
 
+        # 打印意图模型的完整输入(系统提示词+对话上下文)，便于排查
+        logger.bind(tag=TAG).info(f"意图模型输入:\n[system]\n{prompt_music}\n[user]\n{user_prompt}")
+
         # 记录预处理完成时间
         preprocess_time = time.time() - total_start_time
         logger.bind(tag=TAG).debug(f"意图识别预处理耗时: {preprocess_time:.4f}秒")
@@ -246,6 +252,9 @@ class IntentProvider(IntentProviderBase):
         logger.bind(tag=TAG).debug(
             f"外挂的大模型意图识别完成, 模型: {model_info}, 调用耗时: {llm_time:.4f}秒"
         )
+
+        # 打印意图模型原始输出(解析前)，便于排查格式漂移
+        logger.bind(tag=TAG).info(f"意图模型原始输出({model_info}, 耗时{llm_time:.2f}秒): {intent}")
 
         # 记录后处理开始时间
         postprocess_start_time = time.time()
