@@ -229,8 +229,9 @@ class IntentProvider(IntentProviderBase):
             self.promot = self.get_intent_system_prompt(functions)
             self._prompt_func_count = len(functions)
             logger.bind(tag=TAG).info(
-                f"意图系统提示词已构建/更新(共{len(functions)}个工具):\n{self.promot}"
+                f"意图系统提示词已构建/更新(共{len(functions)}个工具)"
             )
+            logger.bind(tag=TAG).debug(f"意图系统提示词全文:\n{self.promot}")
 
         music_config = initialize_music_handler(conn)
         music_file_names = music_config["music_file_names"]
@@ -260,8 +261,9 @@ class IntentProvider(IntentProviderBase):
         msgStr += f"User: {text}\n"
         user_prompt = f"current dialogue:\n{msgStr}"
 
-        # 打印意图模型的完整输入(系统提示词+对话上下文)，便于排查
-        logger.bind(tag=TAG).info(f"意图模型输入:\n[system]\n{prompt_music}\n[user]\n{user_prompt}")
+        # 完整输入(系统提示词+对话上下文)量大，放DEBUG级；INFO只留一行
+        logger.bind(tag=TAG).info(f"意图模型输入: {user_prompt.replace(chr(10), ' | ')}")
+        logger.bind(tag=TAG).debug(f"意图模型完整输入:\n[system]\n{prompt_music}\n[user]\n{user_prompt}")
 
         # 记录预处理完成时间
         preprocess_time = time.time() - total_start_time

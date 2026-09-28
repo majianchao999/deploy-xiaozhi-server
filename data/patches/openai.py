@@ -92,10 +92,10 @@ class LLMProvider(LLMProviderBase):
                 # 新一代GLM(如glm-4.7/5.x)始终思考，禁用会被400拒绝(错误码1210)，改用最低推理强度
                 if disabled_domain == "bigmodel.cn" and model.startswith(ALWAYS_THINKING_MODEL_PREFIXES):
                     request_params.setdefault("extra_body", {}).update({"reasoning_effort": "low"})
-                    logger.bind(tag=TAG).info(f"模型 {model} 始终思考，已设置 reasoning_effort=low")
+                    logger.bind(tag=TAG).debug(f"模型 {model} 始终思考，已设置 reasoning_effort=low")
                 else:
                     request_params.setdefault("extra_body", {}).update(params)
-                    logger.bind(tag=TAG).info(f"为域名 {domain} 禁用思考模式，参数: {params}")
+                    logger.bind(tag=TAG).debug(f"为域名 {domain} 禁用思考模式，参数: {params}")
                 break
 
     def response(self, session_id, dialogue, **kwargs):
