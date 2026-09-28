@@ -224,12 +224,25 @@ class IntentProvider(IntentProviderBase):
                 not in (f.get("function", {}).get("name") or "")
             ]
 
+        # 白名单：配置include_tools后只保留名称匹配(子串)的工具，大幅缩减提示词token，降低费用和延迟
+        include_patterns = self.config.get("include_tools") or []
+        if include_patterns and functions:
+            functions = [
+                f
+                for f in functions
+                if any(
+                    p in (f.get("function", {}).get("name") or "")
+                    for p in include_patterns
+                )
+            ]
+
         # 工具列表变化时(如MCP工具/设备IoT能力晚注册)自动重建提示词，避免整场会话缺失工具
         if self.promot == "" or len(functions) != getattr(self, "_prompt_func_count", -1):
             self.promot = self.get_intent_system_prompt(functions)
             self._prompt_func_count = len(functions)
             logger.bind(tag=TAG).info(
-                f"意图系统提示词已构建/更新(共{len(functions)}个工具)"
+                f"意图系统提示词已构建/更新(共{len(functions)}个工具): "
+                + str([f.get("function", {}).get("name") for f in functions])
             )
             logger.bind(tag=TAG).debug(f"意图系统提示词全文:\n{self.promot}")
 
