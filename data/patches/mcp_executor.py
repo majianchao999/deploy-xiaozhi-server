@@ -68,6 +68,12 @@ class DeviceMCPExecutor(ToolExecutor):
                 return ActionResponse(action=Action.ERROR, response="设备执行失败，请再试一次")
 
             # 有实际内容的返回(如查询结果)：包装明确语义后再交给LLM组织语言
+            # 注意部分固件执行失败时isError仍为false、只在文本里说明，需按内容区分成败，避免LLM谎称成功
+            if isinstance(result, str) and result.strip().startswith(("错误", "失败", "无效")):
+                return ActionResponse(
+                    action=Action.REQLLM,
+                    result=f"工具{tool_name}在设备上执行失败，设备返回：{result}。请向用户简短诚实地说明没做成，不要谎称已执行。",
+                )
             return ActionResponse(
                 action=Action.REQLLM,
                 result=f"工具{tool_name}已在设备上执行成功，返回内容：{result}",
