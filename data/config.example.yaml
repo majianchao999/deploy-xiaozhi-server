@@ -1,0 +1,77 @@
+enable_wakeup_words_response_cache: false
+xiaozhi:
+  audio_params:
+    format: opus
+    sample_rate: 16000
+    channels: 1
+    frame_duration: 60
+
+server:
+  websocket: ws://47.109.32.136:8000/xiaozhi/v1/
+  # 注意：用 Coze 智能体时，人设由 Coze 那边控制，这里的 prompt 大概率不生效
+  prompt: |
+    我是一个叫小智的女孩，说话简短有趣。
+
+selected_module:
+  VAD: SileroVAD
+  ASR: TencentASR      # ← 附件二
+  LLM: CozeLLM         # ← 附件一
+  TTS: TencentTTS      # ← 附件二
+  Memory: nomem
+  Intent: intent_llm   # ← 开启意图识别：音量/音乐/退出/设备动作本地执行，普通聊天走Coze
+
+# ========== 附件一：扣子 Coze 智能体 ==========
+LLM:
+  CozeLLM:
+    type: coze
+    bot_id: "7643362430663802932"
+    user_id: "xiaozhi_user_001"
+    personal_access_token: "你的Coze个人访问令牌"
+
+  # 意图识别专用小模型：豆包lite档，高峰稳定、首token快
+  # 模型ID和Key都来自火山方舟控制台 console.volcengine.com/ark
+  IntentLLM:
+    type: openai
+    model_name: doubao-seed-2-1-lite-260915
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    api_key: 你的火山方舟APIKey
+
+# ========== 附件二：腾讯云语音 ==========
+ASR:
+  TencentASR:
+    type: tencent
+    appid: "你的腾讯云AppId"
+    secret_id: "你的腾讯云SecretId"
+    secret_key: "你的腾讯云SecretKey"
+    output_dir: tmp/
+
+TTS:
+  TencentTTS:
+    type: tencent
+    output_dir: tmp/
+    appid: "你的腾讯云AppId"
+    secret_id: "你的腾讯云SecretId"
+    secret_key: "你的腾讯云SecretKey"
+    region: "ap-guangzhou"
+    speed: 1.2
+
+VAD:
+  SileroVAD:
+    type: silero
+    threshold: 0.5
+    threshold_low: 0.3
+    model_dir: models/snakers4_silero-vad
+    min_silence_duration_ms: 700    # ← 从 700 调大
+
+# ========== 意图识别（intent_llm 双模型架构） ==========
+Intent:
+  intent_llm:
+    type: intent_llm
+    # 指向上方 LLM.IntentLLM，独立于 Coze，专门做意图判断
+    llm: IntentLLM
+    # 要加载的功能插件；音量/设备动作由设备上报自动支持，无需列在这里
+    functions:
+      - play_music
+      # - web_search
+      # - get_weather
+      # - get_news_from_newsnow

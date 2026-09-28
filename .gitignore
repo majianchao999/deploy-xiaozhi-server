@@ -1,0 +1,11 @@
+# 含密钥的真实配置，禁止提交（模板见 data/config.example.yaml）
+data/.config.yaml
+
+# 运行时产物
+data/tmp/
+data/music/
+__pycache__/
+*.pyc
+
+# 大模型文件（几百MB，不适合进git）
+models/
