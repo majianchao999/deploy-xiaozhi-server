@@ -62,6 +62,11 @@ class IntentProvider(IntentProviderBase):
         prompt = (
             "【严格格式要求】你必须只能返回JSON格式，绝对不能返回任何自然语言！\n\n"
             "你是一个意图识别助手。请分析用户的最后一句话，判断用户意图并调用相应的函数。\n\n"
+            "【最高优先级 - 工具匹配规则】\n"
+            "1. 只要用户的请求在功能上能被下面任何一个函数实现，就必须调用该函数，绝对禁止返回continue_chat。\n"
+            "2. 动作类指令（走/跑/跳/舞/太空步/挥手/举手/点头/转身/俯卧撑/广播体操等）、设备控制类（音量/亮度/屏幕）、播放音乐/歌曲类，语气再随意、再像聊天、再像玩笑也必须匹配函数，例如'来个太空步''放首歌呗''你走两步给我看看'。\n"
+            "3. 你不需要判断设备能不能做到，也不用解释，函数列表里有对应能力就直接调用；不确定的参数用合理默认值。\n"
+            "4. 只有当用户的话与所有函数都毫无关联（纯闲聊、知识问答、专业咨询）时，才返回continue_chat。\n\n"
             "【重要规则】以下类型的查询请直接返回result_for_context，无需调用函数：\n"
             "- 询问当前时间（如：现在几点、当前时间、查询时间等）\n"
             "- 询问今天日期（如：今天几号、今天星期几、今天是什么日期等）\n"
@@ -104,9 +109,18 @@ class IntentProvider(IntentProviderBase):
             '返回: {"function_call": {"name": "handle_exit_intent", "arguments": {"say_goodbye": "goodbye"}}}\n'
             "```\n"
             "```\n"
+            "用户: 来个太空步\n"
+            '返回: {"function_call": {"name": "self_otto_action", "arguments": {"action": "dance"}}}\n'
+            "```\n"
+            "```\n"
+            "用户: 放首歌吧\n"
+            '返回: {"function_call": {"name": "play_music", "arguments": {"song_name": "random"}}}\n'
+            "```\n"
+            "```\n"
             "用户: 你好啊\n"
             '返回: {"function_call": {"name": "continue_chat"}}\n'
-            "```\n\n"
+            "```\n"
+            "（注意：以上函数名仅是格式示例，实际以可用函数列表为准；动作/音乐类指令永远优先匹配函数）\n\n"
             "注意：\n"
             "1. 只返回JSON格式，不要包含任何其他文字\n"
             '2. 优先检查用户查询是否为基础信息（时间、日期等），如是则返回{"function_call": {"name": "result_for_context"}}，不需要arguments参数\n'
@@ -166,16 +180,18 @@ class IntentProvider(IntentProviderBase):
             )
             return cached_intent
 
-        if self.promot == "":
-            functions = conn.func_handler.get_functions()
-            if hasattr(conn, "mcp_client"):
-                mcp_tools = conn.mcp_client.get_available_tools()
-                if mcp_tools is not None and len(mcp_tools) > 0:
-                    if functions is None:
-                        functions = []
-                    functions.extend(mcp_tools)
+        functions = conn.func_handler.get_functions()
+        if hasattr(conn, "mcp_client"):
+            mcp_tools = conn.mcp_client.get_available_tools()
+            if mcp_tools is not None and len(mcp_tools) > 0:
+                if functions is None:
+                    functions = []
+                functions.extend(mcp_tools)
 
+        # 工具列表变化时(如MCP工具/设备IoT能力晚注册)自动重建提示词，避免整场会话缺失工具
+        if self.promot == "" or len(functions) != getattr(self, "_prompt_func_count", -1):
             self.promot = self.get_intent_system_prompt(functions)
+            self._prompt_func_count = len(functions)
 
         music_config = initialize_music_handler(conn)
         music_file_names = music_config["music_file_names"]
