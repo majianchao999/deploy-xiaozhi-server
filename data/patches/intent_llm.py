@@ -215,6 +215,15 @@ class IntentProvider(IntentProviderBase):
                     functions = []
                 functions.extend(mcp_tools)
 
+        # 低层舵机序列等开发级工具不参与意图匹配，防止模型自主创造舵机角度产生怪异姿势
+        if functions:
+            functions = [
+                f
+                for f in functions
+                if "servo_sequences"
+                not in (f.get("function", {}).get("name") or "")
+            ]
+
         # 工具列表变化时(如MCP工具/设备IoT能力晚注册)自动重建提示词，避免整场会话缺失工具
         if self.promot == "" or len(functions) != getattr(self, "_prompt_func_count", -1):
             self.promot = self.get_intent_system_prompt(functions)
